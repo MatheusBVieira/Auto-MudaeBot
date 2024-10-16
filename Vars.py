@@ -2,8 +2,9 @@ token = ''
 channelId = ''                 
 serverId = ''         
 
-rollCommand= 'wa'
+rollCommand= 'ma'
 desiredKakeras = ['kakeraP','kakeraY','kakeraO','kakeraR','kakeraW','kakeraL']
-desiredSeries = ['One Piece','Dragon Ball Z','Death Note']
+kakeraThresholdNormal = 250
+kakeraThresholdFinalHour = 0
 pokeRoll = True
-repeatMinute = '25'
+repeatMinute = '02'
