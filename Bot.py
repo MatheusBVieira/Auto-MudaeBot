@@ -4,11 +4,11 @@ import schedule
 from Function import simpleRoll, check_claim_status
 from Texts import Texts
 import logging
+import random
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-Texts.set_language('ENGLISH')
-logging.info("Language set to English")
+Texts.set_language('portuguese')
 
 def schedule_next_roll():
     """Ajustar o horário da próxima rolagem com base no status dos rolls"""
@@ -23,9 +23,10 @@ def schedule_next_roll():
     else:
         logging.info("No rolls available at the moment.")
 
-    logging.info(f"Scheduling the next roll in {next_roll_in_minutes} minutes.")
+    random_number = random.randint(5, 20)
+    logging.info(f"Scheduling the next roll in {next_roll_in_minutes} minutes plus {random_number}.")
     schedule.clear()
-    schedule.every(next_roll_in_minutes).minutes.do(schedule_next_roll)
+    schedule.every(next_roll_in_minutes + random_number).minutes.do(schedule_next_roll)
 
 logging.info("Starting roll scheduler")
 schedule_next_roll()
