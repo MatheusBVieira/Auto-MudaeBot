@@ -1,5 +1,6 @@
 class Texts:
     ENGLISH = {
+        'claim': "claim",
         'next_claim_reset': "The next claim reset is in",
         'cant_claim_for_another': "you can't claim for another",
         'next_rolls_reset': "Next rolls reset in",
@@ -8,9 +9,10 @@ class Texts:
     }
 
     PORTUGUESE = {
-        'next_claim_reset': "O próximo reset de claim será em",
-        'cant_claim_for_another': "você não pode fazer claim por mais",
-        'next_rolls_reset': "O próximo reset de rolls será em",
+        'claim': "casar",
+        'next_claim_reset': "casar agora mesmo! A próxima reinicialização é em",
+        'cant_claim_for_another': "falta um tempo antes que você possa se casar novamente",
+        'next_rolls_reset': "A próxima reinicialização é em",
         'you_have_rolls_left': "Você tem",
         'rolls_left': "rolls restantes"
     }
