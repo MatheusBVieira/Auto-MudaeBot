@@ -84,7 +84,13 @@ def extract_rolls_ready(content, rolls_ready):
     """Extrai o tempo de rolls da mensagem"""
     if Texts.current_language['next_rolls_reset'] in content:
         rolls_time_string = content.split(f"{Texts.current_language['next_rolls_reset']} **")[1]
-        rolls_ready = int(re.search(r'\d+', rolls_time_string).group())
+
+        if 'h' in rolls_time_string:
+            hours_minutes = rolls_time_string.split("**")[0].strip()
+            hours, minutes = map(int, re.findall(r'\d+', hours_minutes))
+            rolls_ready = minutes
+        else:
+            rolls_ready = int(re.search(r'\d+', rolls_time_string).group())
     
     logging.info(f"Extracted rolls ready time: {rolls_ready} minutes")
     return rolls_ready
@@ -179,7 +185,7 @@ def react_to_kakera(message_id, custom_id):
 
 def process_claim(highest_power, best_card, remaining_claim_time, kakera_threshold):
     is_last_hour = remaining_claim_time <= 60
-    logging.info(f"Initiating claim process is last hour {is_last_hour}")
+    logging.info(f"Initiating claim process, is last hour {is_last_hour}")
     if not is_last_hour and highest_power >= kakera_threshold:
         logging.info(f"Claiming card {best_card['name']} with {highest_power} power")
         claim_card(best_card['id'])
