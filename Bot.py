@@ -12,6 +12,8 @@ RESET = '\033[0m'
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+schedules = {}
+
 def schedule_next_roll_for_server(server_name):
     server_config = Vars.servers[server_name]
     Texts.set_language(server_config['language'])
@@ -29,8 +31,11 @@ def schedule_next_roll_for_server(server_name):
 
     random_number = random.randint(5, 20)
     logging.info(HIGHLIGHT + f"Scheduling the next roll in {next_roll_in_minutes} minutes plus {random_number} on server {server_name}." + RESET)
-    schedule.clear()
-    schedule.every(next_roll_in_minutes + random_number).minutes.do(schedule_next_roll_for_server, server_name)
+    
+    if server_name in schedules:
+        schedule.cancel_job(schedules[server_name])
+    
+    schedules[server_name] = schedule.every(next_roll_in_minutes + random_number).minutes.do(schedule_next_roll_for_server, server_name)
 
 for server_name in Vars.servers:
     logging.info(MAGENTA + f"-------- Starting roll scheduler for server {server_name} --------" + RESET)
