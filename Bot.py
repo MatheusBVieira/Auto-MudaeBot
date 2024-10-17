@@ -22,7 +22,7 @@ def schedule_next_roll_for_server(server_name):
     next_roll_in_minutes = rolls_ready if rolls_ready > 0 else 60
     if rolls_available > 0:
         logging.info(HIGHLIGHT + f"You have {rolls_available} rolls available on server {server_name}. Rolling now." + RESET)
-        kakera_threshold = server_config['kakeraThresholdFinalHour'] if remaining_claim_time <= 60 else server_config['kakeraThresholdNormal']
+        kakera_threshold = server_config['kakeraThresholdNormal']
         simpleRoll(remaining_claim_time, rolls_available, kakera_threshold, can_claim, server_config)
     else:
         logging.info(f"No rolls available at the moment on server {server_name}.")

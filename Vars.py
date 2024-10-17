@@ -4,8 +4,7 @@ servers = {
         'channelId': '',
         'serverId': '',
         'language': 'portuguese',
-        'kakeraThresholdNormal': 250,
-        'kakeraThresholdFinalHour': 0,
+        'kakeraThresholdNormal': 170,
         'pokeRoll': False
     },
     'noias': {
@@ -13,8 +12,7 @@ servers = {
         'channelId': '',
         'serverId': '',
         'language': 'english',
-        'kakeraThresholdNormal': 133,
-        'kakeraThresholdFinalHour': 0,
+        'kakeraThresholdNormal': 100,
         'pokeRoll': False
     }
 }

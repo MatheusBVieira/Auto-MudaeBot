@@ -196,7 +196,7 @@ def process_claim(highest_power, best_card, remaining_claim_time, kakera_thresho
         claim_card(best_card['id'], server_config, bot)
 
 def claim_card(card_id, server_config, bot):
-    logging.info(f"Claiming card with id: {card_id} on server {server_config['serverId']}")
+    logging.debug(f"Claiming card with id: {card_id} on server {server_config['serverId']}")
     requests.put(f'https://discord.com/api/v8/channels/{server_config["channelId"]}/messages/{card_id}/reactions/%E2%9D%A4%EF%B8%8F/%40me', headers={'authorization': server_config['token']})
 
 def roll_poke_slot(server_config, bot):
