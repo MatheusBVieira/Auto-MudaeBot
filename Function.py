@@ -13,14 +13,14 @@ HIGHLIGHT = '\033[93m\033[1m'
 GREEN = '\033[32m'
 RED = '\033[31m'
 BLUE = '\033[34m'
+CYAN = '\033[36m'
 RESET = '\033[0m'
 
 def check_claim_status(server_config):
-    """Executa o comando $tu e analisa o status do claim e rolls"""
     logging.info("Sending '$tu' command to Discord")
     bot = discum.Client(token=server_config['token'], log=False)
     bot.sendMessage(server_config['channelId'], "$tu")
-    time.sleep(2)  # Aguardar resposta do bot
+    time.sleep(2)
 
     response = get_discord_messages(server_config)
     logging.info("Response received from Discord")
@@ -32,14 +32,12 @@ def check_claim_status(server_config):
     return remaining_claim_time, rolls_ready, rolls_available, can_claim
 
 def get_discord_messages(server_config):
-    """Obtém as mensagens do canal do Discord"""
     logging.info("Fetching messages from Discord")
     url = f"https://discord.com/api/v8/channels/{server_config['channelId']}/messages"
     r = requests.get(url, headers={'authorization': server_config['token']})
     return json.loads(r.text)
 
 def parse_response(response):
-    """Analisa a resposta e extrai informações sobre tempo de claim e rolls"""
     remaining_claim_time = 0
     rolls_ready = 0
     rolls_available = 0
@@ -59,7 +57,6 @@ def parse_response(response):
     return remaining_claim_time, rolls_ready, rolls_available, can_claim
 
 def extract_claim_time(content, remaining_claim_time, can_claim):
-    """Extrai o tempo de claim da mensagem"""
     if Texts.current_language['next_claim_reset'] in content:
         return parse_time_string(content, Texts.current_language['next_claim_reset'], True)
 
@@ -69,7 +66,6 @@ def extract_claim_time(content, remaining_claim_time, can_claim):
     return remaining_claim_time, can_claim
 
 def parse_time_string(content, text_key, can_claim):
-    """Converte o tempo de texto para minutos"""
     claim_time_string = content.split(f"{text_key} **")[1]
     hours_minutes = claim_time_string.split("**")[0].strip()
 
@@ -84,7 +80,6 @@ def parse_time_string(content, text_key, can_claim):
     return remaining_claim_time, can_claim
 
 def extract_rolls_ready(content, rolls_ready):
-    """Extrai o tempo de rolls da mensagem"""
     if Texts.current_language['next_rolls_reset'] in content:
         rolls_time_string = content.split(f"{Texts.current_language['next_rolls_reset']} **")[1]
         time_parts = rolls_time_string.split('min.')[0].strip()
@@ -100,7 +95,6 @@ def extract_rolls_ready(content, rolls_ready):
     return rolls_ready
 
 def extract_rolls_available(content, rolls_available):
-    """Extrai o número de rolls disponíveis"""
     if Texts.current_language['you_have_rolls_left'] in content and Texts.current_language['rolls_left'] in content:
         rolls_available = int(content.split(f"{Texts.current_language['you_have_rolls_left']} **")[1].split("**")[0].strip())
 
@@ -115,7 +109,7 @@ def simpleRoll(remaining_claim_time, rolls_available, kakera_threshold, can_clai
 
     for i in range(rolls_available):
         rollCommand = get_roll_command(bot)
-        logging.info(f"Rolling card {i + 1} on server {server_config['serverId']}...")
+        logging.debug(f"Rolling card {i + 1} on server {server_config['serverId']}...")
         bot.triggerSlashCommand(botID, server_config['channelId'], server_config['serverId'], data=rollCommand)
         time.sleep(1.8)
 
@@ -124,7 +118,7 @@ def simpleRoll(remaining_claim_time, rolls_available, kakera_threshold, can_clai
 
     highest_power, best_card = analyze_rolled_cards(rolled_cards)
     
-    logging.info(f"Best card power: {highest_power}, Best card name: {best_card['name']} on server {server_config['serverId']}")
+    logging.info(CYAN + f"Best card power: {highest_power}, Best card name: {best_card['name']} on server {server_config['serverId']}" + RESET)
     process_kakera_reaction(rolled_cards, server_config, bot)
     
     if can_claim:
@@ -136,17 +130,16 @@ def simpleRoll(remaining_claim_time, rolls_available, kakera_threshold, can_clai
         roll_poke_slot(server_config, bot)
 
 def get_roll_command(bot):
-    logging.info("Fetching roll command from bot")
+    logging.debug("Fetching roll command from bot")
     return SlashCommander(bot.getSlashCommands(botID).json()).get([Vars.rollCommand])
 
 def analyze_card(index, server_config, bot):
-    logging.info(f"Analyzing rolled card {index + 1} for server {server_config['serverId']}")
+    logging.debug(f"Analyzing rolled card {index + 1} for server {server_config['serverId']}")
     url = f"https://discord.com/api/v8/channels/{server_config['channelId']}/messages"
     r = requests.get(url, headers={'authorization': server_config['token']})
     jsonCard = json.loads(r.text)
     card_data = extract_card_data(jsonCard[0])
 
-    # Log the details of the card
     card_name = card_data['name']
     card_power = card_data['power']
     claimed = '❤️' if 'footer' in jsonCard[0]['embeds'][0] and 'icon_url' in jsonCard[0]['embeds'][0]['footer'] else '🤍'

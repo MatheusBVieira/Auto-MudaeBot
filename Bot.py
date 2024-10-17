@@ -13,7 +13,6 @@ RESET = '\033[0m'
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def schedule_next_roll_for_server(server_name):
-    """Ajustar o horário da próxima rolagem com base no status dos rolls para um servidor específico"""
     server_config = Vars.servers[server_name]
     Texts.set_language(server_config['language'])
     
