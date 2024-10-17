@@ -9,30 +9,33 @@ from discum.utils.slash import SlashCommander
 from Texts import Texts
 
 botID = '432610292342587392'  # ID do bot Mudae
-auth = {'authorization': Vars.token}
-bot = discum.Client(token=Vars.token, log=False)
-url = f'https://discord.com/api/v8/channels/{Vars.channelId}/messages'
+HIGHLIGHT = '\033[93m\033[1m'
+GREEN = '\033[32m'
+RED = '\033[31m'
+BLUE = '\033[34m'
+RESET = '\033[0m'
 
-def check_claim_status():
+def check_claim_status(server_config):
     """Executa o comando $tu e analisa o status do claim e rolls"""
     logging.info("Sending '$tu' command to Discord")
-    bot.sendMessage(Vars.channelId, "$tu")
+    bot = discum.Client(token=server_config['token'], log=False)
+    bot.sendMessage(server_config['channelId'], "$tu")
     time.sleep(2)  # Aguardar resposta do bot
 
-    response = get_discord_messages()
+    response = get_discord_messages(server_config)
     logging.info("Response received from Discord")
 
     remaining_claim_time, rolls_ready, rolls_available, can_claim = parse_response(response)
     
-    logging.info(f"Claim status: Remaining claim time: {remaining_claim_time} minutes, Rolls ready: {rolls_ready}, Rolls available: {rolls_available}")
+    logging.info(HIGHLIGHT + f"Claim status for server {server_config['serverId']}: Remaining claim time: {remaining_claim_time} minutes, Rolls ready: {rolls_ready}, Rolls available: {rolls_available}" + RESET)
     
-
     return remaining_claim_time, rolls_ready, rolls_available, can_claim
 
-def get_discord_messages():
+def get_discord_messages(server_config):
     """Obtém as mensagens do canal do Discord"""
     logging.info("Fetching messages from Discord")
-    r = requests.get(f"https://discord.com/api/v8/channels/{Vars.channelId}/messages", headers={'authorization': Vars.token})
+    url = f"https://discord.com/api/v8/channels/{server_config['channelId']}/messages"
+    r = requests.get(url, headers={'authorization': server_config['token']})
     return json.loads(r.text)
 
 def parse_response(response):
@@ -84,8 +87,9 @@ def extract_rolls_ready(content, rolls_ready):
     """Extrai o tempo de rolls da mensagem"""
     if Texts.current_language['next_rolls_reset'] in content:
         rolls_time_string = content.split(f"{Texts.current_language['next_rolls_reset']} **")[1]
+        time_parts = rolls_time_string.split('min.')[0].strip()
 
-        if 'h' in rolls_time_string:
+        if 'h' in time_parts:
             hours_minutes = rolls_time_string.split("**")[0].strip()
             hours, minutes = map(int, re.findall(r'\d+', hours_minutes))
             rolls_ready = minutes
@@ -103,40 +107,42 @@ def extract_rolls_available(content, rolls_available):
     logging.info(f"Extracted rolls available: {rolls_available}")
     return rolls_available
 
-def simpleRoll(remaining_claim_time, rolls_available, kakera_threshold, can_claim):
-    logging.info(f"Starting roll at {time.strftime('%H:%M - %d/%m/%y', time.localtime())}")
+def simpleRoll(remaining_claim_time, rolls_available, kakera_threshold, can_claim, server_config):
+    logging.info(f"Starting roll at {time.strftime('%H:%M - %d/%m/%y', time.localtime())} for server {server_config['serverId']}")
     
     rolled_cards = []
+    bot = discum.Client(token=server_config['token'], log=False)
 
     for i in range(rolls_available):
-        rollCommand = get_roll_command()
-        logging.info(f"Rolling card {i + 1}...")
-        bot.triggerSlashCommand(botID, Vars.channelId, Vars.serverId, data=rollCommand)
+        rollCommand = get_roll_command(bot)
+        logging.info(f"Rolling card {i + 1} on server {server_config['serverId']}...")
+        bot.triggerSlashCommand(botID, server_config['channelId'], server_config['serverId'], data=rollCommand)
         time.sleep(1.8)
 
-        rolled_card = analyze_card(i)
+        rolled_card = analyze_card(i, server_config, bot)
         rolled_cards.append(rolled_card)
 
     highest_power, best_card = analyze_rolled_cards(rolled_cards)
     
-    logging.info(f"Best card power: {highest_power}, Best card name: {best_card['name']}")
-    process_kakera_reaction(rolled_cards)
+    logging.info(f"Best card power: {highest_power}, Best card name: {best_card['name']} on server {server_config['serverId']}")
+    process_kakera_reaction(rolled_cards, server_config, bot)
     
     if can_claim:
-        process_claim(highest_power, best_card, remaining_claim_time, kakera_threshold)
+        process_claim(highest_power, best_card, remaining_claim_time, kakera_threshold, server_config, bot)
     else:
-        logging.info("Cannot claim any cards at the moment")
+        logging.info(f"Cannot claim any cards at the moment on server {server_config['serverId']}")
 
-    if Vars.pokeRoll:
-        roll_poke_slot()
+    if server_config['pokeRoll']:
+        roll_poke_slot(server_config, bot)
 
-def get_roll_command():
+def get_roll_command(bot):
     logging.info("Fetching roll command from bot")
     return SlashCommander(bot.getSlashCommands(botID).json()).get([Vars.rollCommand])
 
-def analyze_card(index):
-    logging.info(f"Analyzing rolled card {index + 1}")
-    r = requests.get(url, headers=auth)
+def analyze_card(index, server_config, bot):
+    logging.info(f"Analyzing rolled card {index + 1} for server {server_config['serverId']}")
+    url = f"https://discord.com/api/v8/channels/{server_config['channelId']}/messages"
+    r = requests.get(url, headers={'authorization': server_config['token']})
     jsonCard = json.loads(r.text)
     card_data = extract_card_data(jsonCard[0])
 
@@ -144,7 +150,7 @@ def analyze_card(index):
     card_name = card_data['name']
     card_power = card_data['power']
     claimed = '❤️' if 'footer' in jsonCard[0]['embeds'][0] and 'icon_url' in jsonCard[0]['embeds'][0]['footer'] else '🤍'
-    logging.info(f"Card {index + 1} - {claimed} ---- Power: {card_power} - Name: {card_name}")
+    logging.info(f"Card {index + 1} - {claimed} ---- Power: {card_power} - Name: {card_name} on server {server_config['serverId']}")
     
     return card_data
 
@@ -170,37 +176,38 @@ def analyze_rolled_cards(rolled_cards):
             best_card = card
     return highest_power, best_card
 
-def process_kakera_reaction(rolled_cards):
+def process_kakera_reaction(rolled_cards, server_config, bot):
     logging.info("Processing kakera reactions")
     for card in rolled_cards:
         components = card.get('components', [])
         for component in components:
             if 'emoji' in component and component['emoji']['name'] in Vars.desiredKakeras:
                 logging.info(f"Reacting to kakera emoji: {component['emoji']['name']} on card: {card['name']}")
-                react_to_kakera(card['id'], component['custom_id'])
+                react_to_kakera(card['id'], component['custom_id'], server_config, bot)
 
-def react_to_kakera(message_id, custom_id):
-    logging.info(f"Reacting to message {message_id} with custom_id {custom_id}")
-    bot.click(botID, Vars.channelId, Vars.serverId, messageID=message_id, data={'component_type': 2, 'custom_id': custom_id})
+def react_to_kakera(message_id, custom_id, server_config, bot):
+    logging.info(f"Reacting to message {message_id} with custom_id {custom_id} on server {server_config['serverId']}")
+    bot.click(botID, server_config['channelId'], server_config['serverId'], messageID=message_id, data={'component_type': 2, 'custom_id': custom_id})
 
-def process_claim(highest_power, best_card, remaining_claim_time, kakera_threshold):
+def process_claim(highest_power, best_card, remaining_claim_time, kakera_threshold, server_config, bot):
     is_last_hour = remaining_claim_time <= 60
-    logging.info(f"Initiating claim process, is last hour {is_last_hour}")
+    logging.info(BLUE + f"Initiating claim process, is last hour {is_last_hour} for server {server_config['serverId']}" + RESET)
     if not is_last_hour and highest_power >= kakera_threshold:
-        logging.info(f"Claiming card {best_card['name']} with {highest_power} power")
-        claim_card(best_card['id'])
+        logging.info(GREEN + f"Claiming card {best_card['name']} with {highest_power} power on server {server_config['serverId']}" + RESET)
+        claim_card(best_card['id'], server_config, bot)
     else:
-        logging.info(f"No cards above {kakera_threshold} kakera")
+        logging.info(RED + f"No cards above {kakera_threshold} kakera on server {server_config['serverId']}" + RESET)
 
     if is_last_hour:
-        logging.info(f"Claiming best card {best_card['name']} with {highest_power} power in last hour")
-        claim_card(best_card['id'])
+        logging.info(GREEN + f"Claiming best card {best_card['name']} with {highest_power} power in last hour on server {server_config['serverId']}" + RESET)
+        claim_card(best_card['id'], server_config, bot)
 
-def claim_card(card_id):
-    logging.info(f"Claiming card with id: {card_id}")
-    requests.put(f'https://discord.com/api/v8/channels/{Vars.channelId}/messages/{card_id}/reactions/%E2%9D%A4%EF%B8%8F/%40me', headers=auth)
+def claim_card(card_id, server_config, bot):
+    logging.info(f"Claiming card with id: {card_id} on server {server_config['serverId']}")
+    requests.put(f'https://discord.com/api/v8/channels/{server_config["channelId"]}/messages/{card_id}/reactions/%E2%9D%A4%EF%B8%8F/%40me', headers={'authorization': server_config['token']})
 
-def roll_poke_slot():
-    logging.info("Rolling Pokeslot")
-    requests.post(url=url, headers=auth, data={'content': '$p'})
+def roll_poke_slot(server_config, bot):
+    logging.info(f"Rolling Pokeslot on server {server_config['serverId']}")
+    url = f"https://discord.com/api/v8/channels/{server_config['channelId']}/messages"
+    requests.post(url=url, headers={'authorization': server_config['token']}, data={'content': '$p'})
 
