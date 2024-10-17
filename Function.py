@@ -143,6 +143,9 @@ def analyze_card(index, server_config, bot):
     card_name = card_data['name']
     card_power = card_data['power']
     claimed = '❤️' if 'footer' in jsonCard[0]['embeds'][0] and 'icon_url' in jsonCard[0]['embeds'][0]['footer'] else '🤍'
+    is_claimed = claimed == '❤️'
+    card_data['claimed'] = is_claimed
+
     logging.info(f"Card {index + 1} - {claimed} ---- Power: {card_power} - Name: {card_name} on server {server_config['serverId']}")
     
     return card_data
@@ -164,6 +167,10 @@ def analyze_rolled_cards(rolled_cards):
     best_card = None
     logging.info("Analyzing rolled cards for the best card")
     for card in rolled_cards:
+        if card['claimed']:
+            logging.info(f"Skipping card {card['name']} because it has already been claimed.")
+            continue
+
         if card['power'] > highest_power:
             highest_power = card['power']
             best_card = card
@@ -185,6 +192,11 @@ def react_to_kakera(message_id, custom_id, server_config, bot):
 def process_claim(highest_power, best_card, remaining_claim_time, kakera_threshold, server_config, bot):
     is_last_hour = remaining_claim_time <= 60
     logging.info(BLUE + f"Initiating claim process, is last hour {is_last_hour} for server {server_config['serverId']}" + RESET)
+
+    if best_card is None or best_card['claimed']:
+        logging.info(RED + "No valid unclaimed cards available for claiming." + RESET)
+        return
+    
     if not is_last_hour and highest_power >= kakera_threshold:
         logging.info(GREEN + f"Claiming card {best_card['name']} with {highest_power} power on server {server_config['serverId']}" + RESET)
         claim_card(best_card['id'], server_config, bot)
