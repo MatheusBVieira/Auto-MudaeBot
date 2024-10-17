@@ -107,13 +107,14 @@ def simpleRoll(remaining_claim_time, rolls_available, kakera_threshold, can_clai
     rolled_cards = []
     bot = discum.Client(token=server_config['token'], log=False)
 
+    instant_claim = False
     for i in range(rolls_available):
         rollCommand = get_roll_command(bot)
         logging.debug(f"Rolling card {i + 1} on server {server_config['serverId']}...")
         bot.triggerSlashCommand(botID, server_config['channelId'], server_config['serverId'], data=rollCommand)
         time.sleep(1.8)
 
-        rolled_card = analyze_card(i, server_config, bot)
+        rolled_card, instant_claim  = analyze_card(i, server_config, bot, can_claim)
         rolled_cards.append(rolled_card)
 
     highest_power, best_card = analyze_rolled_cards(rolled_cards)
@@ -122,9 +123,9 @@ def simpleRoll(remaining_claim_time, rolls_available, kakera_threshold, can_clai
     process_kakera_reaction(rolled_cards, server_config, bot)
     
     if can_claim:
-        process_claim(highest_power, best_card, remaining_claim_time, kakera_threshold, server_config, bot)
+        process_claim(highest_power, best_card, remaining_claim_time, kakera_threshold, server_config, bot, instant_claim)
     else:
-        logging.info(f"Cannot claim any cards at the moment on server {server_config['serverId']}")
+        logging.info(RED + f"Cannot claim any cards at the moment on server {server_config['serverId']}" + RESET)
 
     if server_config['pokeRoll']:
         roll_poke_slot(server_config, bot)
@@ -133,7 +134,7 @@ def get_roll_command(bot):
     logging.debug("Fetching roll command from bot")
     return SlashCommander(bot.getSlashCommands(botID).json()).get([Vars.rollCommand])
 
-def analyze_card(index, server_config, bot):
+def analyze_card(index, server_config, bot, can_claim):
     logging.debug(f"Analyzing rolled card {index + 1} for server {server_config['serverId']}")
     url = f"https://discord.com/api/v8/channels/{server_config['channelId']}/messages"
     r = requests.get(url, headers={'authorization': server_config['token']})
@@ -147,8 +148,14 @@ def analyze_card(index, server_config, bot):
     card_data['claimed'] = is_claimed
 
     logging.info(f"Card {index + 1} - {claimed} ---- Power: {card_power} - Name: {card_name} on server {server_config['serverId']}")
+
+    instant_claim = False
+    if card_power >= server_config['kakeraThresholdInstantClaim'] and not is_claimed and can_claim:
+        logging.info(GREEN + f"Instantly claiming card {card_name} with power {card_power} on server {server_config['serverId']}" + RESET)
+        claim_card(card_data['id'], server_config, bot)
+        instant_claim = True 
     
-    return card_data
+    return card_data, instant_claim
 
 def extract_card_data(card):
     try:
@@ -189,23 +196,23 @@ def react_to_kakera(message_id, custom_id, server_config, bot):
     logging.info(f"Reacting to message {message_id} with custom_id {custom_id} on server {server_config['serverId']}")
     bot.click(botID, server_config['channelId'], server_config['serverId'], messageID=message_id, data={'component_type': 2, 'custom_id': custom_id})
 
-def process_claim(highest_power, best_card, remaining_claim_time, kakera_threshold, server_config, bot):
+def process_claim(highest_power, best_card, remaining_claim_time, kakera_threshold, server_config, bot, instant_claim):
     is_last_hour = remaining_claim_time <= 60
     logging.info(BLUE + f"Initiating claim process, is last hour {is_last_hour} for server {server_config['serverId']}" + RESET)
 
-    if best_card is None or best_card['claimed']:
+    if best_card is None or best_card['claimed'] or instant_claim:
         logging.info(RED + "No valid unclaimed cards available for claiming." + RESET)
         return
     
     if not is_last_hour and highest_power >= kakera_threshold:
         logging.info(GREEN + f"Claiming card {best_card['name']} with {highest_power} power on server {server_config['serverId']}" + RESET)
         claim_card(best_card['id'], server_config, bot)
+    elif is_last_hour:
+        logging.info(GREEN + f"Claiming best card {best_card['name']} with {highest_power} power in last hour on server {server_config['serverId']}" + RESET)
+        claim_card(best_card['id'], server_config, bot)
     else:
         logging.info(RED + f"No cards above {kakera_threshold} kakera on server {server_config['serverId']}" + RESET)
 
-    if is_last_hour:
-        logging.info(GREEN + f"Claiming best card {best_card['name']} with {highest_power} power in last hour on server {server_config['serverId']}" + RESET)
-        claim_card(best_card['id'], server_config, bot)
 
 def claim_card(card_id, server_config, bot):
     logging.debug(f"Claiming card with id: {card_id} on server {server_config['serverId']}")

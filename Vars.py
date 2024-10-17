@@ -5,6 +5,7 @@ servers = {
         'serverId': '',
         'language': 'portuguese',
         'kakeraThresholdNormal': 170,
+        'kakeraThresholdInstantClaim': 300,
         'pokeRoll': False
     },
     'noias': {
@@ -13,6 +14,7 @@ servers = {
         'serverId': '',
         'language': 'english',
         'kakeraThresholdNormal': 100,
+        'kakeraThresholdInstantClaim': 230,
         'pokeRoll': False
     }
 }
