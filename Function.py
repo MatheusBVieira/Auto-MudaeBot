@@ -139,6 +139,7 @@ def analyze_card(index, server_config, bot, can_claim):
     url = f"https://discord.com/api/v8/channels/{server_config['channelId']}/messages"
     r = requests.get(url, headers={'authorization': server_config['token']})
     jsonCard = json.loads(r.text)
+
     card_data = extract_card_data(jsonCard[0])
 
     card_name = card_data['name']
@@ -158,16 +159,20 @@ def analyze_card(index, server_config, bot, can_claim):
     return card_data, instant_claim
 
 def extract_card_data(card):
+    logging.debug(f"JSON da mensagem: {json.dumps(card, indent=4)}")
     try:
         card_name = card['embeds'][0]['author']['name']
         card_series = card['embeds'][0]['description'].split('**')[0]
         card_power = int(card['embeds'][0]['description'].split('**')[1])
+        card_flag = int(card['flags'])
+        card_author = card['author']
     except (IndexError, KeyError, ValueError):
-        logging.error(f"Error extracting card data: {e}")
+        logging.error(f"Error extracting card data")
         card_name = 'null'
         card_series = 'null'
         card_power = 0
-    return {'name': card_name, 'series': card_series, 'power': card_power, 'id': card['id'], 'components': card.get('components', [])}
+        card_flag = None
+    return {'name': card_name, 'series': card_series, 'power': card_power, 'id': card['id'], 'flags' : card_flag , 'author': card_author,'components': card.get('components', [])}
 
 def analyze_rolled_cards(rolled_cards):
     highest_power = 0
@@ -184,22 +189,43 @@ def analyze_rolled_cards(rolled_cards):
     return highest_power, best_card
 
 def process_kakera_reaction(rolled_cards, server_config, bot):
-    logging.info("Processing kakera reactions")
-    for card in rolled_cards:
-        components = card.get('components', [])
-        for component in components:
-            if 'emoji' in component and component['emoji']['name'] in Vars.desiredKakeras:
-                logging.info(f"Reacting to kakera emoji: {component['emoji']['name']} on card: {card['name']}")
-                react_to_kakera(card['id'], component['custom_id'], server_config, bot)
+    logging.info(f"Processing kakera reactions for server {server_config['serverId']}")
+    
+    for card_data in rolled_cards:
+        card_name = card_data['name']
+        card_kakera = None
 
-def react_to_kakera(message_id, custom_id, server_config, bot):
-    logging.info(f"Reacting to message {message_id} with custom_id {custom_id} on server {server_config['serverId']}")
-    bot.click(botID, server_config['channelId'], server_config['serverId'], messageID=message_id, data={'component_type': 2, 'custom_id': custom_id})
+        if card_data['components']:
+            try:
+                card_kakera = card_data['components'][0]['components'][0]['emoji']['name']
+            except (IndexError, KeyError):
+                logging.warning(f"No kakera found for card {card_name}")
+
+        if card_kakera and card_kakera in Vars.desiredKakeras:
+                logging.info(f"{card_kakera} - Attempting to react to kakera {card_kakera} on card {card_name}")
+                try:
+                    react_to_kakera(server_config, bot, card_data)
+                except Exception as e:
+                    logging.error(f"Failed to react to kakera {card_kakera} on card {card_name}: {e}")
+
+def react_to_kakera(server_config, bot, card_data):
+    logging.info(f"Reacting to message {card_data['id']} with custom_id {card_data['components'][0]['components'][0]['custom_id']} on server {server_config['serverId']}")
+    
+    bot.click(
+                    card_data['author']['id'], 
+                    channelID=server_config['channelId'], 
+                    guildID=server_config['serverId'], 
+                    messageID=card_data['id'], 
+                    messageFlags=card_data['flags'], 
+                    data={'component_type': 2, 'custom_id': card_data['components'][0]['components'][0]['custom_id']}
+                )
+    time.sleep(0.5)
 
 def process_claim(highest_power, best_card, remaining_claim_time, kakera_threshold, server_config, bot, instant_claim):
     is_last_hour = remaining_claim_time <= 60
     logging.info(BLUE + f"Initiating claim process, is last hour {is_last_hour} for server {server_config['serverId']}" + RESET)
 
+    logging.info(f'Instant claim {instant_claim}')
     if best_card is None or best_card['claimed'] or instant_claim:
         logging.info(RED + "No valid unclaimed cards available for claiming." + RESET)
         return
